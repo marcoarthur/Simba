@@ -1,0 +1,152 @@
+---
+title: "Simple Descriptive Exploration Simba"
+author: "Marco Arthur"
+date: "8/22/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+# setwd('~/simba')
+locale('pt')
+Biometrias <- read_csv("Biometrias.csv", skip = 9)
+Biometrias <- read_delim("Biometrias.csv", 
+    ";", escape_double = FALSE, trim_ws = TRUE,
+    locale = locale(decimal_mark = ","),
+    skip = 9)
+# medidas para quelonios
+Quelonio <- read_delim("Quelônio.csv",
+    ";", escape_double = FALSE, trim_ws = TRUE,
+    locale = locale(decimal_mark = ","),
+    skip = 9)
+# exames
+Exames <- read_delim("Exames.csv", ";", escape_double = FALSE,
+    locale = locale(decimal_mark = ","),
+    trim_ws = TRUE, skip = 9)
+
+```
+
+# Biometria
+Dados de biometrias
+
+## Pré processamento
+
+Os dados crus aprensentam alguns caracteres nulos, caracteres de controle que não podem ser visualizados, devendo, portanto, ser retirados. Há, assim, uma etapa de pré-processamento para retirada desses caracteres.
+
+## Variáveis
+
+Ao todo são 14 variáveis para biometrias. A maioria trata de valores categóricos.
+```{r}
+names(Biometrias)
+```
+
+## Contagens
+
+### Espécies
+```{r}
+especies <- as.factor(Biometrias$`Espécies - Espécie`)
+sort(table(especies))
+```
+
+### Valor Categórico de Tipo 
+
+```{r}
+tipo <- as.factor(Biometrias$Tipo)
+sort(table(tipo))
+ggplot(Biometrias, aes(x=Tipo) ) + geom_bar() +  ggtitle("Biometrias") + xlab("Tipo") + ylab("Atendimentos")
+```
+
+
+# Quelônios
+
+Também conhecidas como tartarugas marinhas.
+
+## Variáveis
+
+Neste caso as variáveis são em sua maioria medidas contínuas, relativas ao tamanho, peso, etc...
+
+```{r}
+names(Quelonio)
+```
+
+## Espécies
+
+Contagem dos dados categóricos para espécies de tartaruga marinha.
+Nota-se que algumas não puderam ser identificadas, provavelmente por estarem em fase avançada de putrefação.
+
+```{r}
+Quelonio %>%
+  group_by(`Espécies - Espécie`) %>%
+  summarise(count = n())
+```
+
+## Médias por espécie
+
+Valores médios dos parâmetros medidos, agrupado por espécie.
+```{r}
+grupos <- Quelonio %>%
+  group_by(`Espécies - Espécie`)
+  
+grupos %>%
+  summarise(
+    Total = n(),
+    comprimento_medio = mean(`Comprimento total (cm)`, na.rm = T),
+    carapaca_media = mean(`Comprimento curvilíneo carapaça (cm)`, na.rm = T)
+  ) %>%
+  filter(Total > 10)
+```
+
+## Distribuição para as Chelonia Mydas
+
+Como existe um alto número de exemplares da espécie Chelonia Mydas, é de interesse obeservar sua distribuição no diversos parâmetros. Tratando-a à parte das demais espécies.
+
+```{r}
+mydas <- Quelonio %>% filter(`Espécies - Espécie` == 'Chelonia mydas')
+ggplot(mydas, aes(x = `Comprimento total (cm)`)) + geom_histogram( na.rm = T, bins = 50)
+```
+
+## Distribuição do Tamanho (cm) todas espécies
+
+Usando os gráficos de whiskers (que mostra a variância, média mediana e outliers).
+
+```{r}
+whisk_plot <- function(col_var) {
+grupos %>%
+  filter( !is.na(`Espécies - Espécie`) ) %>%
+  group_by(`Espécies - Espécie`) %>%
+  ggplot(aes(y = !! col_var , fill=factor(`Espécies - Espécie`))) + geom_boxplot( na.rm = T)
+}
+whisk_plot(quo(`Comprimento total (cm)`))
+```
+
+## Distribuição do tamanho cabeça (cm) Todas espécies
+
+```{r}
+whisk_plot(quo(`Comprimento cabeça (cm)`))
+```
+
+## Distribuição Largura máxima curvilínea plastrão
+```{r}
+whisk_plot(quo(`Largura máxima curvilínea plastrão (cm)`))
+```
+
+## Correlacionando e modelando
+
+Algumas coisas podem começar a ser exploradas como correlacionadas, por exemplo, descobrir como o comprimento afeta a largura do plastrão. A relação é a mesma em diferentes espécies ? Existem medidas indiretas que podem ser tomadas para melhor correlação, exemplo, largura máxima x comprimento máximo (área virtual) x comprimento total ?
+
+### Chelonia Mydas
+
+#### Comprimento total x Largura máxima curvilínea
+```{r}
+mydas %>%
+  ggplot(aes(x = `Largura máxima curvilínea carapaça (cm)`, y= `Comprimento total (cm)`)) + geom_point( na.rm = T)
+```
+
+#### Medidas da cabeça: Comprimento x Largura
+
+```{r}
+mydas %>%
+  ggplot(aes(x = `Largura máxima cabeça (cm)`, y = `Comprimento cabeça (cm)`)) + geom_point(na.rm = T)
+```
